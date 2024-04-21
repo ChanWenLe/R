@@ -1,0 +1,637 @@
+---
+title: "The Singapore HDB Resale Market: 1990-2024"
+author: "Chan Wen Le"
+date: "2024-03-04"
+output: word_document
+---
+  
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Executive Summary
+
+
+The purpose of this report is to determine the key factors influencing the price of HDB (Housing and Development Board) units in Singapore. Through comprehensive analysis, 2 primary factors significantly impact HDB prices have been identified: the distance of the town to the city centre and the remaining lease years of the property.
+
+
+The distance from the town to the city has emerged as a crucial determinant of HDB prices. Proximity to the city centre is often associated with greater accessibility to employment opportunities, shorter commuting times, improve availability to amenities, thereby increasing the desirability of HDB units in closer proximity and consequently driving up their prices.
+
+
+Additionally, the remaining lease years of the HDB property plays a significant role in determining its market value. HDB units are leasehold properties which come with a finite lease duration, upon ending of leasehold duration, the ownership of the unit will be returned to the State. Therefore, properties with longer remaining lease terms are perceived as offering greater long-term value and security, leading to higher price premiums compared to those with shorter lease periods.
+
+
+Several other factors also drive the resale prices of HDB units, such as the inflation rates, the storey levels of the units, and the scarcity of specific flat types. Higher floor levels are typically associated with higher resale prices, owing to factors like improved privacy and scenery. Moreover, 5-room flats and executive flats are often priced higher per square meter compared to other flat types due to their limited availability in the market.
+
+
+The report highlights a distinct trend revealing a strong preference among the residents of Singapore for 4-room flats, both in the short and long term. This preference is supported by the observed number of transactions over time and is expected to become more pronounced due to lower birth rates and smaller family sizes.
+
+
+The methodology employed in this report for analysing the dataset involves descriptive analysis. This approach aims to provide extensive insights, behaviours, and characteristics of the factors influencing resale price of HDB units based on historical data. Such insights can be useful in aiding the stakeholders to make informed decisions. (Shrutika, 2023) 
+
+
+By comprehending the impact of these factors, stakeholders including buyers, sellers, and policymakers can enhance their decision-making process regarding HDB transactions, investments, and urban planning initiatives.
+In conclusion, this study provides valuable findings into the determinants of HDB pricing, emphasising the significance of distance from the city centre and remaining lease durations. Moving forward, further studies could explore additional features and their impact on HDB prices, contributing to a more comprehensive understanding of Singapore's dynamic real estate landscape.
+
+
+
+
+
+## Introduction
+
+
+The Housing and Development Board (HDB) plays a pivotal role in Singapore's housing landscape, providing affordable and high-quality housing solutions for its residents. With Singapore's ever evolving real estate market, understanding the factors influencing the prices of HDB units is essential for stakeholders ranging from prospective buyers to policymakers. This report delves into the fundamental determinants shaping HDB unit prices in Singapore, with the aim of providing insightful perspective into the dynamic market.
+
+
+The primary objective of this report is to discern and analyse the key factors affecting the pricing trends of HDB units in Singapore. Through thorough analysis, the report seeks to shed light on the impact of factors such as the distance of the town to the city centre, remaining lease years of the property, inflation rates, floor levels of the units, and the scarcity of specific flat types on HDB prices. By uncovering these determinants, the report aims to provide stakeholders with valuable insights to facilitate informed decision-making regarding HDB transactions, investments, and urban planning initiatives.
+
+
+## Data
+
+The dataset provided has been split into 5 separate Microsoft Excel CSV files. Before merging these files, the 'remaining_lease' column was ommited. This is due to the column only existed in the latest datasets. The attempt to merge mismatch number of columns would result in an error.
+
+After concatenating the 5 CSV files, the 'remaining_lease' column was reintroduced to the dataset, named 'dfs'. Additionally, the 'month' column was converted to 'Date' type using 'lubridate' library.
+
+Graphs were generated to visualise the distribution of the each variable and to identify any potential outliers. The 'is.na' function was applied to all features to inspect for missing values, it turns out that all columns are complete.
+
+```{r Import Dataset, include=FALSE}
+
+#Import dataset into R
+
+library(dplyr)
+df1990 = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/ResaleFlatPricesBasedonApprovalDate19901999.csv')
+df2000 = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/ResaleFlatPricesBasedonApprovalDate2000Feb2012.csv')
+df2012 = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/ResaleFlatPricesBasedonRegistrationDateFromMar2012toDec2014.csv')
+df2015 = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/ResaleFlatPricesBasedonRegistrationDateFromJan2015toDec2016.csv')
+df2017 = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/ResaleflatpricesbasedonregistrationdatefromJan2017onwards.csv')
+
+```
+
+
+```{r Concatenation, include=FALSE,message=FALSE}
+# Function to drop "remaining lease" column in 2015 & 2017
+df2017 <- df2017 %>%
+  select(-remaining_lease)
+
+df2015 <- df2015 %>%
+  select(-remaining_lease)
+
+dfs <- bind_rows(df1990, df2000, df2012, df2015, df2017)
+
+```
+
+
+```{r Mutating Month, include=FALSE,message=FALSE}
+# Mutating 'month' column into 'Date' class
+library('lubridate')
+
+dfs = dfs %>% mutate(month = lubridate::ym(dfs$month))
+class(dfs$month)
+```
+
+
+```{r Checking resale price having missing value, echo=FALSE}
+# Extract year from the column 'month'
+dfs$year <- year(as.Date(dfs$month))
+
+dfs <- dfs %>% 
+  mutate(remaining_lease = 99- (`year` - `lease_commence_date`))
+
+```
+
+
+
+```{r Missing value, echo=FALSE}
+### Checking missing values across columns  
+str(dfs)
+missing_values <- colSums(is.na(dfs))
+print(missing_values)
+```
+There are 11 variables established prior to the commencement of data wrangling. From the table provided, 919537 observations were imported in with no missing values.
+
+```{r Flat Type & Flat Model, message=FALSE,include=FALSE}
+
+# To check for the type of flat type available
+unique(dfs$flat_type)
+
+
+
+# Convert strings in the 'flat_model' column to lowercase
+unique(dfs$flat_model)
+```
+
+```{r Distribution of floor area sqm, echo=FALSE,message=FALSE}
+# To check the distribution of 'floor_area_sqm' by plotting histogram
+library(ggplot2)
+
+ggplot(data = dfs, mapping = aes(x = floor_area_sqm))+
+  geom_histogram( fill= 'skyblue', color = 'black')+
+  scale_x_continuous(breaks = seq(0 , 300, by = 50)) +
+  labs(x = 'Floor Area (sqm)', y = 'Number of Counts', title = 'Histogram of Floor Area Distribution')
+
+```
+
+ 
+
+```{r Checking outlier for floor area sqm, echo=FALSE,message=FALSE}
+# Checking the Outlier for 'floor_area_sqm'
+model_counts_over200 <- dfs %>% 
+  filter(floor_area_sqm >= 200 ) %>%
+  count(flat_model) %>%
+  arrange(n)
+print(model_counts_over200)
+```
+
+The first variable that we examine is the distribution of floor area across all observations. A small number of outliers were detected, upon closer inspection, it was reveal that these outliers corresponded to HDB units that are larger than the standard size.
+
+```{r CPI, echo=FALSE,message=FALSE,warning=FALSE}
+# Read in values for CPI from Singstat
+
+cpi = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/cpijan24.csv')
+
+cpi$month <- as.Date(cpi$year, format = '%d-%m-%y')
+
+cpi <- cpi %>%
+  select(2:3)
+
+
+# Left join with the Master Dataset
+dfs = left_join(x = dfs, y = cpi, by = 'month' )
+
+
+
+# Deflate the nominal dollars to constant dollars
+
+dfs = dfs %>% mutate(real_price = `resale_price`/`cpi` *100)
+
+
+
+
+# Plot with Unadjusted Inflation
+price_median_unadjusted <- aggregate(resale_price ~ month, data=dfs, FUN=median)
+ggplot(data = price_median_unadjusted,mapping = aes(x = month, y = resale_price))+
+  geom_line(color="#00cef6")+
+  labs(x = 'Date', y = 'Resale price in SGD', title = 'Unadjusted Resale Price for  Inflation ')+
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y")+
+  scale_y_continuous(labels = scales::comma)+
+  scale_y_continuous(labels = scales::dollar)
+```
+
+Next, we examine the line graph of the resale price from 1990 to 2024. It is evident that there is a consistent upward trend in resale prices over the period, interrupted by two substantial price adjustments in 1997 and 2013, namely the 1997 Asian Financial Crisis and the implementation of  cooling in 2013. To further analyse these trends, we introduce the Consumer Price Index (CPI) to adjust the nominal prices to constant dollars, using 2019 as base year for comparison.(Department of Statistics Singapore, 2024)
+
+```{r CPI Part 2, echo=FALSE,warning=FALSE,message=FALSE}
+# Plot with Adjusted Inflation
+price_median_adjusted <- aggregate(real_price ~ month, data=dfs, FUN=median)
+ggplot(data = price_median_adjusted,mapping = aes(x = month, y = real_price))+
+  geom_line(color="#00cef6")+
+  labs(x = 'Date', y = 'Resale price in SGD', title = 'Adjusted Resale Price for Inflation ')+
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y")+
+  scale_y_continuous(labels = scales::comma)+
+  scale_y_continuous(labels = scales::dollar)
+```
+
+It can be observed that the CPI-adjusted price peaked in 1997, followed by a decline until 2004, with a subsequent rebound in prices. In 2013, there was a noticeable decline attributed to the implementation of various cooling measures such as  Additional Buyer's Stamp Duty (ABSD), Loan-to-Value (LTV) Ratio, and Total Debt Servicing Ratio (TDSR). (SRX, n.d.)
+
+
+Subsequently, the real prices fluctuated within the range of S$350000 to S$450000 until 2019, meaning that HDB resale prices actually stagnated for around 8 years. However, the onset of Covid-19 pandemic later triggered a rapid surge, imputed to a mismatch in supply and demand for HDB flats, exacerbated by delays in the completion of build-to-order(BTO) projects.
+
+
+```{r Type of flat, include=FALSE}
+# Count the frequency of each category in 'flat_type'
+unique(dfs$flat_type)
+
+
+dfs <- dfs %>%
+  mutate(flat_type = case_when( # Specify Multiple Conditions and Their Corresponding Replacements
+    flat_type == "MULTI-GENERATION" ~ "MULTI GENERATION",
+    TRUE ~ flat_type 
+  ))
+
+
+unique(dfs$flat_type)
+flat_type_counts <- table(dfs$flat_type)
+
+# Calculation of percentages of the entries in 'flat_type'
+flat_type_percentages <- prop.table(flat_type_counts) * 100
+
+
+# Subset and plot
+dfs_flat = subset(dfs, flat_type %in% c('3 ROOM','4 ROOM','5 ROOM','EXECUTIVE'))
+
+```
+
+
+```{r Type of flat part 2, echo=FALSE,warning=FALSE,message=FALSE}
+# Subset the data for year from 2016-2024
+dfs_flat2016= subset(dfs_flat, year>2015)
+
+# Create the boxplot
+ggplot(dfs_flat, aes(x = flat_type, y = resale_price)) +
+  geom_boxplot(fill = "skyblue") +
+  labs(x = "Flat Type", y = "Resale Price", title = "Boxplot of Resale Price by Flat Type (All Years)")+
+  scale_y_continuous(limits = c(0, 1000000), labels = scales::dollar_format())
+```
+
+
+It is apparent that flats with a greater number of rooms tend to command a higher median price.For clarity in our analysis, we excluded 1-room, 2-room and multi-generation flats from the plot due to their low proportion in the upcoming analysis.
+
+
+```{r Type of flat part 3 , echo=FALSE}
+#Number of transaction '3 Room','4 Room','5 Room' for 1990-2024 
+ggplot(dfs_flat, aes(x = flat_type)) +
+  geom_bar() +
+  labs(title = "Frequency of Transacted Flat Types (All Years)", x = "Flat Type", y = "Frequency") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+```{r Type of flat part 4 , echo=FALSE}
+#Number of transaction '3 Room','4 Room','5 Room' for 2016-2024
+ggplot(dfs_flat2016, aes(x = flat_type)) +
+  geom_bar() +
+  labs(title = "Frequency of Transacted Flat Types (2016-2024)", x = "Flat Type", y = "Frequency") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+Next, we will delve into the transaction trends of residential flats in Singapore from two perspectives, examining both the overall picture and the nearer term 2016-2024.The flat type of 1-room, 2-room and Multi-Generation flats are omitted due to their relatively low proportion in transactions. Upon closer examination of both plots, it is apparent that a notably higher frequency of transactions involving 4-room flats, both in the short and long term suggests a clear preference among Singapore residents for these units over 5-room and 3-room flats.
+
+There are several factors contribute to this preference, according to Statisca (2024), the 4-room flats align with the average family size in Singapore, which is 3.1 persons per household. This makes them more suitable for typical family structure. Additionally,the 5-room flats are having a higher median price when comparing to 4-rooms flats, making the latter a more affordable option for many prospective buyers.
+
+
+```{r Type of flat part 4, echo=FALSE,warning=FALSE,message=FALSE}
+# Calculate median resale price for each flat type and year
+median_prices345e <- dfs_flat %>%
+  group_by(year, flat_type) %>%
+  summarise(median_resale_price = median(resale_price))
+
+
+# Plotting
+ggplot(median_prices345e, aes(x = year, y = median_resale_price, color = flat_type)) +
+  geom_line() +
+  labs(title = "Median Resale Prices of Different Flat Types Over Years",
+       x = "Year",
+       y = "Median Resale Price",
+       color = "Flat Type") +
+  scale_x_continuous(breaks = seq(1990, 2024, by = 5)) +
+  theme_minimal()+
+  scale_y_continuous(labels = scales::comma)
+```
+
+```{r Type of flat part 5, echo=FALSE,warning=FALSE,message=FALSE}
+
+
+# Calculate accumulated percentage changes in median prices from 2014 to 2024
+median_prices345e <- median_prices345e %>%
+  group_by(flat_type) %>%
+  mutate(accumulated_percentage_change = (median_resale_price / median_resale_price[year == 1990] - 1) * 100)
+
+View(median_prices345e)
+
+
+ggplot(median_prices345e, aes(x = year, y = accumulated_percentage_change, color = flat_type)) +
+  geom_line() +
+  labs(title = "Accumulated Percentage Change in Median Resale Prices Over Year",
+       x = "Year",
+       y = "Accumulated Percentage Change(%)",
+       color = "Flat Type") +
+  scale_x_continuous(breaks = seq(1990, 2024, by = 4)) +
+  theme_minimal()+
+  theme(plot.title = element_text(size = 8,hjust = 1, margin = margin(b = 20)))
+```
+
+From the diagrams above, it is notable that the median prices of various types of flats fluctuate in tandem. Notably,3-room flats exhibit the highest accumulated percentage change, followed by 4-room, 5-room and executive flats. This pattern is attributed to the comparatively lower starting prices of 3-room flats, whereby a minor change result in higher accumulated percentage changes. 
+
+```{r storey range, echo=FALSE}
+
+#Subset the data beyond year 2015
+dfs_2016= subset(dfs, year>2015)
+
+# Calculate median resale price for each storey range
+median_prices_floor2016 <- tapply(dfs_2016$resale_price, dfs_2016$storey_range, median) #tapply() function is used to apply the median() function to the resale_price column based on the storey_range
+
+
+
+# Extract relevant storey ranges for plotting
+storey_ranges <- names(median_prices_floor2016) #extracts the names of the storey ranges from the median_prices_floor2016 vector and assigns them to the variable storey_ranges.
+
+# Create a data frame for plotting
+plot_data <- data.frame(
+  storey_range = storey_ranges,
+  median_prices = median_prices_floor2016
+  
+)
+
+#Subset certain floor range out
+rows_to_keep <- c(1, 5, 9, 13, 17)
+subset_plot_data <- subset(plot_data, rownames(plot_data) %in% rownames(plot_data)[rows_to_keep])
+
+
+# Plot scatterplot
+ggplot(subset_plot_data, aes(x = storey_range, y = median_prices)) +
+  geom_point() +
+  labs(x = "Storey Range", y = "Median Resale Price ($)",
+       title = "Median Resale Price by Storey Range")+
+  scale_y_continuous(labels = scales::dollar)
+
+```
+
+
+A linear relationship is observed between the the storey range and resale price , wherein a higher storey will be sold at a higher price.
+
+
+## Exploratory Analysis
+
+
+```{r median price, echo=FALSE}
+
+
+
+# Read In the dataset for distance from town to city
+town = read.csv(file = 'C:/Users/Chan Wen Le/Downloads/Story Telling/town.csv')
+dfs_2016 = left_join(x = dfs_2016, y = town, by = 'town' )
+
+#Subset the data for 4 Room Type
+dfs_2016_4room= subset(dfs_2016, flat_type=='4 ROOM')
+
+#Box plot for Median Resale Prices of All Type Flats From 2016-2024
+ggplot(dfs_2016, aes(x = resale_price, y = reorder(town, resale_price, FUN = median) )) +
+  geom_boxplot(fill = "skyblue") +
+  labs(title = "Median Resale Prices of All Type Flats From 2016-2024(Sort By Descending)",
+       x = "Resale Price",
+       y = "Town")+
+   theme(plot.title = element_text(size = 10,hjust = 1, margin = margin(b = 20)))
+
+#Box plot for Yr 2016-2024
+ggplot(dfs_2016_4room, aes(x = resale_price, y = reorder(town, resale_price, FUN = median) )) +
+  geom_boxplot(fill = "skyblue") +
+  labs(title = "4 ROOM Median Resale Prices From 2016-2024 (Sort By Descending)",
+       x = "Resale Price",
+       y = "Town")+
+   theme(plot.title = element_text(size = 10,hjust = 1, margin = margin(b = 20)))
+```
+
+Under this section, the report will focus on the factors influencing HDB prices, particularly from the period of 2016 to 2024. Two boxplot graphs are plotted to compare the median prices of all types of flats and 4-room flats. Among all-flat types, Bukit Timah stands out with the highest median resale price, closely followed by Bishan, Queenstown, Bukit Merah and the Central Area. Surprisingly, the median price for the Central Area is comparatively close to Pasir Ris and Kallang/Whompoa area, which is S$535000, S$532000 and S$533444 respectively.
+
+On the other hand, it is anticipated that the Central Area commands the highest median price in 4-room flats market, with Queenstown, Bukit Merah, Bukit Timah, Kallang, Toa Payoh and Bishan following after it.
+
+Next, we will analyse the median prices of HDB units, sorting them according to their distance from city.
+
+
+
+```{r median price Part 2, echo=FALSE}
+
+#Box plot for Yr 2016-2024 by distance sort by Distance
+ggplot(dfs_2016, aes(x = resale_price, y = reorder(town,Distance.to.town.km.,decreasing = T ) )) +
+  geom_boxplot(fill = "skyblue") +
+  labs(title = "Median Resale Prices of All Type Flats From 2016-2024 (Sort by Distance)",
+       x = "Resale Price",
+       y = "Town")+
+   theme(plot.title = element_text(size = 10,hjust = 1, margin = margin(b = 20)))
+
+#Box plot for 4 ROOM Yr 2016-2024 by distance
+ggplot(dfs_2016_4room, aes(x = resale_price, y = reorder(town,Distance.to.town.km.,decreasing = T ) )) +
+  geom_boxplot(fill = "skyblue") +
+  labs(title = "4 Room Median Resale Prices From 2016-2024 (Sort By Distance)",
+       x = "Resale Price",
+       y = "Town")+
+  theme(plot.title = element_text(size = 10,hjust = 1, margin = margin(b = 20)))
+
+```
+
+The resale price of each town are now being sorted based on their distance from city.(Google Maps, 2024) 
+
+
+Among all the types of flats,if an individual has no specific preference regarding the type of flat but prioritises only proximity to city centre, the analysis suggests that Geylang, Toa Payoh, and Marine Parade emerge as prime locations worth consideration.
+
+
+
+
+
+
+```{r scatterplot for distance from town, echo=FALSE,warning=FALSE,message=FALSE}
+
+# Calculate median resale price for each town
+median_prices_2016 <- dfs_2016 %>%
+  group_by(town) %>%
+  summarise(median_resale_price = median(resale_price, na.rm = TRUE),
+            Distance.to.town.km. = first(Distance.to.town.km.))  # Just for one value since it should be the same for each town
+
+# Create scatterplot
+ggplot(data = median_prices_2016, aes(x = Distance.to.town.km., y = median_resale_price, label = town)) +
+  geom_point() +
+  geom_text(vjust = -0.5, hjust = 0.5, size = 1.85) +  # Add labels with town names
+  geom_smooth(method = "lm", se = FALSE) +  # Add linear regression line
+  labs(x = "Distance to City (km)", y = "Median Resale Price", title = "Scatterplot of Median Resale Price of All Type Flats vs. Distance to City (2016-2024)") +
+  scale_y_continuous(labels = scales::dollar)+
+  theme(plot.title = element_text(size = 8.5,hjust = 1, margin = margin(b = 20)))
+
+```
+
+Based on the scatterplot above, it is apparent that there is an inverse correlation between the distance from each town to the city centre and the median resale price. A closer proximity to the city center corresponds to higher resale prices across all types of flats. 
+
+
+Notably, mature townships such as Bukit Merah, Queenstown, Bukit Timah, and Bishan are positioned above the linear regression line due to the robust demand for properties in these areas, known for their comprehensive infrastructure and amenities.
+
+```{r  median resale price over remaining lease, echo=FALSE}
+# Calculate median resale price for each remaining lease
+median_resale_price <- aggregate(resale_price ~ remaining_lease, data = dfs_flat2016, median)
+View(dfs_flat2016)
+# Plot median resale price against remaining lease
+ggplot(median_resale_price, aes(x = remaining_lease, y = resale_price)) +
+  geom_line() +
+  labs(x = "Remaining Lease (Years)", y = "Median Resale Price",title = "Resale Price for All Type of Flats Vs. Remaining Lease(2016-2024)") +
+  theme_minimal()+
+  scale_y_continuous( labels = scales::dollar_format())+
+  theme(plot.title = element_text(size = 9,hjust = 1, margin = margin(b = 20)))
+```
+
+Next, we will divert our attention to the median resale prices against the remaining leasehold duration. Individuals are typically willing to pay more for flats with longer remaining leases. However, exceptions exist where people will secure a flat at above market value prices, particularly for older flats that offer spacious living areas. Additionally, another exception arises when the property's prime location outweighs the significance of lease duration.
+
+
+
+## Exploratory Analysis with Subtopic: The Million Dollar Flats
+
+```{r million dollar part 1, include=FALSE}
+#Million Dollar Flat
+
+dfs_mil = subset(dfs,resale_price>1000000)
+
+# Convert 'year' to a factor for categorical plotting
+dfs_mil$year <- as.factor(dfs_mil$year)
+
+# Count the number of transactions per year
+transaction_count_mil <- dfs_mil %>%
+  group_by(year) %>%
+  summarise(count = n())
+
+#Calculate the total transaction number
+total_transactions_mil <- sum(transaction_count_mil$count)
+print(total_transactions_mil)
+
+#Check for the highest resale price transacted
+highest_resale_price <- max(dfs_mil$resale_price)
+print(highest_resale_price)
+
+```
+
+```{r no of transaction for million dollar part 2, echo=FALSE}
+
+
+# Plotting
+ggplot(transaction_count_mil, aes(x = year, y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Number of Flat Transacted above a Million Dollar by Year",
+       x = "Year",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 9,hjust = 0, margin = margin(b = 10)))+
+  theme(axis.text.x = element_text(size = 8, angle = 45, hjust = 1))
+
+```
+
+Next, we will explore the subtopic of exploratory analysis, focusing on the characteristic of HDB units transacted for more than a million dollars.
+
+Transactions above a million dollars for HDB units were non-existent before 2012, making it astounding when the first transaction took place that year. As a rule of thumb among market participants, the property market operates in cycles,with prices escalating rapidly during bullish phases. This trend has been particularly notable since 2020, with the number of transactions above a million dollars skyrocketing thereafter.
+
+
+
+```{r million dollar part 3, echo=FALSE}
+
+# Count the number of transactions for each town
+transaction_count_town <- dfs_mil %>%
+  group_by(town) %>%
+  summarise(count = n())
+
+# Sort by count in descending order
+sorted_transaction_count <- transaction_count_town %>%
+  arrange(desc(count))
+
+# Select top 6 towns
+top_towns <- head(sorted_transaction_count, 6)
+
+# Plotting for top 6 towns
+ggplot(top_towns, aes(x = reorder(town, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Number of Transactions for Top 6 Towns",
+       x = "Town",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r million dollar part 4, echo=FALSE}
+
+# Count the number of transactions for each flat type
+transaction_count_flat <- dfs_mil %>%
+  group_by(flat_type) %>%
+  summarise(count = n())
+
+
+# Plotting
+ggplot(transaction_count_flat, aes(x = flat_type, y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Number of Transactions per Flat Type",
+       x = "Flat Type",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+A total of 1371 million-dollar flats were transacted since the onset of occurrence, with approximately 250 transactions occurring in the Central Area, subsequently by Bishan, Queenstown,Toa Payoh, Bukit Merah and Kallang Whompoa. These 6 places collectively accounted for 70% of the occurrence of million-dollars flats.
+
+
+```{r million dollar part 5, echo=FALSE,,message=FALSE,warning=FALSE}
+# Price per square meter
+dfs_mil <- dfs_mil %>%
+  mutate(Pxpersqm = `resale_price` / `floor_area_sqm`)
+
+```
+
+
+```{r million dollar part 6, echo=FALSE,message=FALSE,warning=FALSE}
+
+# Calculate median Price per sqm by year
+median_data_mil <- aggregate(Pxpersqm ~ year, data = dfs_mil, FUN = median)
+
+# Plot Median of Price per sqm by year
+ggplot(median_data_mil, aes(x = year, y = Pxpersqm)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "Median Pxpersqm", title = "Median Pxpersqm by Year(flats transacted more than a million dollar)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(plot.title = element_text(size = 8,hjust = 1, margin = margin(b = 20)))
+
+### 
+# Plot Median of Price per sqm by year
+ggplot(dfs_mil, aes(x = remaining_lease, y = Pxpersqm)) +
+  geom_point() +
+  labs(x = "Remaining Lease Year", y = "Median Pxpersqm", title = "Pxpersqm by Remaining Lease Year(flats transacted more than a million dollar)")+
+  geom_smooth(method = "lm", se = FALSE)+
+  theme(plot.title = element_text(size = 9,hjust = 1, margin = margin(b = 20)))
+
+```
+
+
+The feature 'Pxpersqm' is derived by dividing the resale prices of million-dollar transacted units by the square meter of each unit. It appears that the median prices per square meter consistently fell within the range of S$8500 to S$10000, significantly higher than smaller unit flats in the surrounding area. This may be attributed to the majority of transacted units having larger areas, which are scarce in the market.
+
+Subsequently, the median of 'Pxpersqm' was plotted against the remaining lease year,revealing that units with a longer remaining duration tend to command a higher price per square meter.
+
+
+
+
+## Conclusion
+
+
+The study provides significant insights into the determinants of HDB pricing, understanding the importance of proximity to the city centre and remaining lease durations of the unit to resale prices of flats. The million-dollar subtopic serves to underscore the importance of these factors,while also highlighting the premium prices commanded by larger flats due to land scarcity in Singapore. The stakeholders including buyers, sellers, and policymakers can make well-informed decisions with these discoveries in mind. Further research could explore additional features based on the findings of this report to deepen the understanding of Singapore's dynamic real estate landscape.
+
+
+
+
+## Biblography
+
+
+
+Abram, L. (2024, March).How Many Million-Dollar HDB Flats Were Sold? (2024). SmartWealth.
+
+https://smartwealth.sg/million-dollar-hdb-flats/
+
+
+
+
+
+Timothy, H. (2024, February). Could We See An HDB Flat Sold For $2 Million Within This Decade? Dollars And Sense.
+
+https://dollarsandsense.sg/see-hdb-flat-sold-2-million-within-decade/
+
+
+
+
+
+Department of Statistics Singapore. (2024, Jan). Singapore Consumer Price Index, Jan 2024.
+
+https://www.singstat.gov.sg/whats-new/latest-news/cpi-highlights
+
+
+
+
+Shrutika, S. (2023, Feb). Bridging the Gap: Overcome These 7 Flaws In Descriptive Research Design. Enago Academy. 
+
+https://www.enago.com/academy/descriptive-research-design/#:~:text=Descriptive%20research%20provides%20a%20comprehensive%20picture%20of%20the%20characteristics%2C%20behaviors,future%20research%20and%20policy%20decisions.
+
+
+
+
+
+Statista. (n.d.). Average Household Size In Singapore From 2013 To 2022.
+
+https://www.statista.com/statistics/625305/average-household-size-singapore/
+
+
+
+
+
+
+SRX. (n.d.). Singapore's New Property Market Cooling Measures, Latest Updates 2023.
+
+https://www.srx.com.sg/cooling-measures
+
+
+
+
+
